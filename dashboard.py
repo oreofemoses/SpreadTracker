@@ -118,7 +118,7 @@ if st.button('Start Scraping'):
         ['CFX_USDT', 2.00], ['DOT_USDT', 0.26], ['DOGE_USDT', 0.26], ['ETH_USDT', 0.25],
         ['FARTCOIN_USDT', 2.00], ['FLOKI_USDT', 0.50], ['HYPE_USDT', 2.00], ['LINK_USDT', 0.26],
         ['NEAR_USDT', 2.00], ['NOS_USDT', 2.00], ['PEPE_USDT', 0.50], ['POL_USDT', 0.50],
-        ['QDX_USDT', 10.00], ['RENDER_USDT', 2.00], ['SONIC_USDT', 2.00], ['SHIB_USDT', 0.40],
+        ['QDX_USDT', 10.00], ['RENDER_USDT', 2.00], ['Sonic_USDT', 2.00], ['SHIB_USDT', 0.40],
         ['SLP_USDT', 2.00], ['SOL_USDT', 0.30], ['STRK_USDT', 2.00], ['SUI_USDT', 2.00],
         ['TON_USDT', 0.30], ['TRX_USDT', 0.30], ['USDC_USDT', 0.02], ['WIF_USDT', 2.00],
         ['XLM_USDT', 0.30], ['XRP_USDT', 0.30], ['XYO_USDT', 1.00], ['ZKSync_USDT', 2.00],
