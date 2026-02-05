@@ -1,4 +1,5 @@
 selenium
 pandas
-streamlit
 webdriver-manager
+streamlit>=1.35.0
+altair<5
