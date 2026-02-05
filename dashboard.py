@@ -113,7 +113,7 @@ if st.button('Start Scraping'):
 
     url = "https://pro.quidax.io/en_US/trade/"
     pairs = [
-        ['QDX_NGN', 10.00],['AAVE_USDT', 0.30], ['ADA_USDT', 0.26], ['ALGO_USDT', 2.00], ['BCH_USDT', 0.26],
+        ['AAVE_USDT', 0.30], ['ADA_USDT', 0.26], ['ALGO_USDT', 2.00], ['BCH_USDT', 0.26],
         ['BNB_USDT', 0.30], ['BONK_USDT', 2.00], ['BTC_USDT', 0.20], ['CAKE_USDT', 0.30],
         ['CFX_USDT', 2.00], ['DOT_USDT', 0.26], ['DOGE_USDT', 0.26], ['ETH_USDT', 0.25],
         ['FARTCOIN_USDT', 2.00], ['FLOKI_USDT', 0.50], ['HYPE_USDT', 2.00], ['LINK_USDT', 0.26],
@@ -122,7 +122,7 @@ if st.button('Start Scraping'):
         ['SLP_USDT', 2.00], ['SOL_USDT', 0.30], ['STRK_USDT', 2.00], ['SUI_USDT', 2.00],
         ['TON_USDT', 0.30], ['TRX_USDT', 0.30], ['USDC_USDT', 0.02], ['WIF_USDT', 2.00],
         ['XLM_USDT', 0.30], ['XRP_USDT', 0.30], ['XYO_USDT', 1.00], ['ZKSync_USDT', 2.00],
-        ['BTC_NGN', 0.50], ['USDT_NGN', 0.50], ['ETH_NGN', 0.50],
+        ['BTC_NGN', 0.50], ['USDT_NGN', 0.50], ['QDX_NGN', 10.00], ['ETH_NGN', 0.50],
         ['TRX_NGN', 0.50], ['XRP_NGN', 0.50], ['DASH_NGN', 0.50], ['LTC_NGN', 0.50],
         ['SOL_NGN', 0.50], ['USDC_NGN', 0.50]
     ]
