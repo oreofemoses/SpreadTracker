@@ -73,39 +73,39 @@ st.set_page_config(page_title="Crypto Spread Monitor", layout="wide")
 st.title("Quidax Orderbook Monitor")
 
 if st.button('Start Scraping'):
-    # chrome_options = Options()
-    # # chrome_options.add_argument("--headless") 
-    # prefs = {"profile.managed_default_content_settings.images": 2}
-    # chrome_options.add_experimental_option("prefs", prefs)
-    # driver = webdriver.Chrome(options=chrome_options)
-    # Selenium Setup - Improved Headless Configuration
     chrome_options = Options()
-    
-    # Use the new headless mode (behaves much more like a real browser)
-    chrome_options.add_argument("--headless=new") 
-    
-    # 1. MUST set a real User-Agent to avoid being flagged as "HeadlessChrome"
-    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
-    chrome_options.add_argument(f"user-agent={user_agent}")
-    
-    # 2. MUST set a large window size so the orderbook is actually rendered
-    chrome_options.add_argument("--window-size=1920,1080")
-    
-    # 3. Disable automation flags that websites look for
-    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    chrome_options.add_experimental_option("useAutomationExtension", False)
-    
-    # 4. Standard performance & stability flags
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    
-    # Original image-blocking preference
+    # chrome_options.add_argument("--headless") 
     prefs = {"profile.managed_default_content_settings.images": 2}
     chrome_options.add_experimental_option("prefs", prefs)
-    
     driver = webdriver.Chrome(options=chrome_options)
+    # # Selenium Setup - Improved Headless Configuration
+    # chrome_options = Options()
+    
+    # # Use the new headless mode (behaves much more like a real browser)
+    # chrome_options.add_argument("--headless=new") 
+    
+    # # 1. MUST set a real User-Agent to avoid being flagged as "HeadlessChrome"
+    # user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+    # chrome_options.add_argument(f"user-agent={user_agent}")
+    
+    # # 2. MUST set a large window size so the orderbook is actually rendered
+    # chrome_options.add_argument("--window-size=1920,1080")
+    
+    # # 3. Disable automation flags that websites look for
+    # chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+    # chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    # chrome_options.add_experimental_option("useAutomationExtension", False)
+    
+    # # 4. Standard performance & stability flags
+    # chrome_options.add_argument("--no-sandbox")
+    # chrome_options.add_argument("--disable-dev-shm-usage")
+    # chrome_options.add_argument("--disable-gpu")
+    
+    # # Original image-blocking preference
+    # prefs = {"profile.managed_default_content_settings.images": 2}
+    # chrome_options.add_experimental_option("prefs", prefs)
+    
+    # driver = webdriver.Chrome(options=chrome_options)
     wait = WebDriverWait(driver, 10) # Shorter wait for better responsiveness
 
     url = "https://pro.quidax.io/en_US/trade/"
