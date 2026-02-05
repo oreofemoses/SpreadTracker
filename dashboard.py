@@ -109,7 +109,7 @@ if st.button('Start Scraping'):
 # --- NEW: Cloud-Specific Rendering Wait ---
 # Headless browsers on Linux servers are sometimes slower than local ones
 
-    wait = WebDriverWait(driver, 5) # Shorter wait for better responsiveness
+    wait = WebDriverWait(driver, 10) # Shorter wait for better responsiveness
 
     url = "https://pro.quidax.io/en_US/trade/"
     pairs = [
