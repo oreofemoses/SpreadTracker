@@ -101,7 +101,10 @@ def parse_orderbook(text: str):
 # --- NEW: Depth Calculation Function ---
 def calculate_liquidity_depth(asks_df, bids_df, spread_pct):
     """
-    Calculate total liquidity depth within spread_pct of mid-price.
+    Calculate total liquidity depth within spread_pct of mid-price IN QUOTE CURRENCY.
+    
+    Depth is calculated as price × amount for each order, giving the total value
+    in quote currency (USDT or NGN) available for trading.
     
     Args:
         asks_df: DataFrame with ask orders (price, amount, total)
@@ -109,7 +112,7 @@ def calculate_liquidity_depth(asks_df, bids_df, spread_pct):
         spread_pct: Percentage range from mid-price (e.g., 1.0 for 1%, 2.0 for 2%)
         
     Returns:
-        Total liquidity in USD within the spread range, or None if data unavailable
+        Total liquidity in quote currency (USDT/NGN) within the spread range, or None if data unavailable
     """
     # Check if we have data
     if asks_df.empty or bids_df.empty:
@@ -126,13 +129,25 @@ def calculate_liquidity_depth(asks_df, bids_df, spread_pct):
     upper_bound = mid_price * (1 + spread_pct / 100)
     lower_bound = mid_price * (1 - spread_pct / 100)
     
-    # Calculate bid-side liquidity (orders >= lower_bound)
-    bid_depth = bids_df[bids_df['price'] >= lower_bound]['total'].sum()
+    # Filter orders within bounds
+    valid_bids = bids_df[bids_df['price'] >= lower_bound].copy()
+    valid_asks = asks_df[asks_df['price'] <= upper_bound].copy()
     
-    # Calculate ask-side liquidity (orders <= upper_bound)
-    ask_depth = asks_df[asks_df['price'] <= upper_bound]['total'].sum()
+    # Calculate bid-side liquidity in QUOTE CURRENCY (price × amount)
+    if not valid_bids.empty:
+        valid_bids['quote_value'] = valid_bids['price'] * valid_bids['amount']
+        bid_depth = valid_bids['quote_value'].sum()
+    else:
+        bid_depth = 0
     
-    # Total depth (both sides)
+    # Calculate ask-side liquidity in QUOTE CURRENCY (price × amount)
+    if not valid_asks.empty:
+        valid_asks['quote_value'] = valid_asks['price'] * valid_asks['amount']
+        ask_depth = valid_asks['quote_value'].sum()
+    else:
+        ask_depth = 0
+    
+    # Total depth (both sides) in quote currency
     total_depth = bid_depth + ask_depth
     
     return total_depth
@@ -206,17 +221,17 @@ if 'scraping_active' not in st.session_state:
 PAIRS = [
     ['AAVE_USDT', 0.30], ['ADA_USDT', 0.26], ['ALGO_USDT', 2.00],
     ['BCH_USDT', 0.26], ['BNB_USDT', 0.30], ['BONK_USDT', 2.00],
-    ['BTC_USDT', 0.20], ['CAKE_USDT', 0.30], ['CFX_USDT', 2.00],
+    ['BTC_USDT', 0.20], ['CAKE_USDT', 0.30], ['CFX_USDT', 2.00],['DASH_USDT', 2.00],
     ['DOT_USDT', 0.26], ['DOGE_USDT', 0.26], ['ETH_USDT', 0.25],
     ['FARTCOIN_USDT', 2.00], ['FLOKI_USDT', 0.50], ['HYPE_USDT', 2.00],
-    ['LINK_USDT', 0.26], ['NEAR_USDT', 2.00], ['NOS_USDT', 2.00],
+    ['LINK_USDT', 0.26],['LSK_USDT', 1.50], ['LTC_USDT', 0.30], ['NEAR_USDT', 2.00], ['NOS_USDT', 2.00],
     ['PEPE_USDT', 0.50], ['POL_USDT', 0.50], ['QDX_USDT', 10.00],
     ['RENDER_USDT', 2.00], ['Sonic_USDT', 2.00], ['SHIB_USDT', 0.40],
-    ['SLP_USDT', 2.00], ['SOL_USDT', 0.30], ['STRK_USDT', 2.00],
+    ['SLP_USDT', 2.00], ['SOL_USDT', 0.25], ['STRK_USDT', 2.00],
     ['SUI_USDT', 2.00], ['TON_USDT', 0.30], ['TRX_USDT', 0.30],
     ['USDC_USDT', 0.02], ['WIF_USDT', 2.00], ['XLM_USDT', 0.30],
     ['XRP_USDT', 0.30], ['XYO_USDT', 1.00], ['ZKSync_USDT', 2.00],
-    ['BTC_NGN', 0.50], ['USDT_NGN', 0.50], ['QDX_NGN', 10.00],
+    ['BTC_NGN', 0.50], ['USDT_NGN', 0.52], ['QDX_NGN', 10.00],
     ['ETH_NGN', 0.50], ['TRX_NGN', 0.50], ['XRP_NGN', 0.50],
     ['DASH_NGN', 0.50], ['LTC_NGN', 0.50], ['SOL_NGN', 0.50],
     ['USDC_NGN', 0.50]
@@ -236,8 +251,8 @@ if 'results_map' not in st.session_state:
             "Target %": p[1],
             "Difference": None,
             "Percent Diff %": None,
-            "Depth @ 1%": None,      # NEW
-            "Depth @ 2%": None,      # NEW
+            "Depth @ 25% above spread": None,      # NEW
+            "Depth @ 50% above spread": None,      # NEW
             "Status": "Pending...",
             "Last Updated": "-",
             "warn_count": 0,
@@ -369,8 +384,8 @@ if st.button('Start Scraping', disabled=st.session_state.scraping_active):
                                         "Current Spread %": current_val,
                                         "Difference": round(diff, 4),
                                         "Percent Diff %": round(percent_diff, 2),
-                                        "Depth @ 1%": depth_1pct_display,  # NEW
-                                        "Depth @ 2%": depth_2pct_display,  # NEW
+                                        "Depth @ 25% above spread": depth_1pct_display,  # NEW
+                                        "Depth @ 50% above spread": depth_2pct_display,  # NEW
                                         "Status": "Warning",
                                         "Last Updated": time.strftime("%H:%M:%S")
                                     })
@@ -395,8 +410,8 @@ if st.button('Start Scraping', disabled=st.session_state.scraping_active):
                                 "Current Spread %": current_val,
                                 "Difference": round(diff, 4),
                                 "Percent Diff %": round(percent_diff, 2),
-                                "Depth @ 1%": depth_1pct_display,  # NEW
-                                "Depth @ 2%": depth_2pct_display,  # NEW
+                                "Depth @ 25% above spread": depth_1pct_display,  # NEW
+                                "Depth @ 50% above spread": depth_2pct_display,  # NEW
                                 "Status": status,
                                 "Last Updated": time.strftime("%H:%M:%S"),
                                 "warn_count": item["warn_count"],
