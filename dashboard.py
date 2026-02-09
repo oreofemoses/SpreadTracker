@@ -153,6 +153,57 @@ def calculate_liquidity_depth(asks_df, bids_df, spread_pct):
     return total_depth
 
 
+def calculate_dws(asks_df, bids_df, num_levels=10):
+    """
+    Calculate Dollar-Weighted Spread (DWS) using mid-price-based formulation.
+    
+    DWS = Σ[|AskSize_i(Ask_i - Mid) + BidSize_i(Mid - Bid_i)|] / Σ(AskSize_i + BidSize_i)
+    
+    Args:
+        asks_df: DataFrame with ask orders (price, amount, total)
+        bids_df: DataFrame with bid orders (price, amount, total)
+        num_levels: Number of price levels to include from each side (default: 10)
+        
+    Returns:
+        DWS as a percentage, or None if data unavailable
+    """
+    # Check if we have data
+    if asks_df.empty or bids_df.empty:
+        return None
+    
+    # Get best bid and ask prices
+    best_ask = asks_df['price'].min()  # Lowest ask
+    best_bid = bids_df['price'].max()  # Highest bid
+    
+    # Calculate mid-price
+    mid_price = (best_ask + best_bid) / 2
+    
+    # Take first num_levels from each side
+    asks_subset = asks_df.nsmallest(num_levels, 'price').copy()
+    bids_subset = bids_df.nlargest(num_levels, 'price').copy()
+    
+    # Calculate weighted deviations for asks: AskSize_i × (Ask_i - Mid)
+    asks_subset['weighted_dev'] = asks_subset['amount'] * (asks_subset['price'] - mid_price)
+    
+    # Calculate weighted deviations for bids: BidSize_i × (Mid - Bid_i)
+    bids_subset['weighted_dev'] = bids_subset['amount'] * (mid_price - bids_subset['price'])
+    
+    # Numerator: Sum of absolute values of weighted deviations
+    numerator = asks_subset['weighted_dev'].abs().sum() + bids_subset['weighted_dev'].abs().sum()
+    
+    # Denominator: Sum of all sizes
+    denominator = asks_subset['amount'].sum() + bids_subset['amount'].sum()
+    
+    # Avoid division by zero
+    if denominator == 0:
+        return None
+    
+    # Calculate DWS and convert to percentage
+    dws = (numerator / denominator) / mid_price * 200
+    
+    return dws
+
+
 def format_depth_value(depth_value):
     """
     Format depth value for display with K/M suffix.
@@ -251,8 +302,9 @@ if 'results_map' not in st.session_state:
             "Target %": p[1],
             "Difference": None,
             "Percent Diff %": None,
-            "Depth @ 25% above spread": None,      # NEW
-            "Depth @ 50% above spread": None,      # NEW
+            "DWS": None,                               # NEW
+            "Depth @ 25% above spread": None,
+            "Depth @ 50% above spread": None,
             "Status": "Pending...",
             "Last Updated": "-",
             "warn_count": 0,
@@ -364,6 +416,11 @@ if st.button('Start Scraping', disabled=st.session_state.scraping_active):
                         depth_1pct = calculate_liquidity_depth(asks_df, bids_df, spread_df['spread_percent'][0]*(1.25))
                         depth_2pct = calculate_liquidity_depth(asks_df, bids_df, spread_df['spread_percent'][0]*(1.5))
                         
+                        # Calculate Dollar-Weighted Spread (DWS) for first 10 levels
+                        dws_value = calculate_dws(asks_df, bids_df, num_levels=10)
+                        dws_display = f"{dws_value:.4f}" if dws_value is not None else "--"
+                        r_display = f"{dws_value/spread_df:.4f}" if dws_value is not None else "--"
+                        
                         # Format depth for display
                         depth_1pct_display = format_depth_value(depth_1pct)
                         depth_2pct_display = format_depth_value(depth_2pct)
@@ -384,8 +441,10 @@ if st.button('Start Scraping', disabled=st.session_state.scraping_active):
                                         "Current Spread %": current_val,
                                         "Difference": round(diff, 4),
                                         "Percent Diff %": round(percent_diff, 2),
-                                        "Depth @ 25% above spread": depth_1pct_display,  # NEW
-                                        "Depth @ 50% above spread": depth_2pct_display,  # NEW
+                                        "DWS": dws_display,  # NEW
+                                        "R": r_display,
+                                        "Depth @ 25% above spread": depth_1pct_display,
+                                        "Depth @ 50% above spread": depth_2pct_display,
                                         "Status": "Warning",
                                         "Last Updated": time.strftime("%H:%M:%S")
                                     })
@@ -410,8 +469,10 @@ if st.button('Start Scraping', disabled=st.session_state.scraping_active):
                                 "Current Spread %": current_val,
                                 "Difference": round(diff, 4),
                                 "Percent Diff %": round(percent_diff, 2),
-                                "Depth @ 25% above spread": depth_1pct_display,  # NEW
-                                "Depth @ 50% above spread": depth_2pct_display,  # NEW
+                                "DWS": dws_display,  # NEW
+                                "R": r_display,
+                                "Depth @ 25% above spread": depth_1pct_display,
+                                "Depth @ 50% above spread": depth_2pct_display,
                                 "Status": status,
                                 "Last Updated": time.strftime("%H:%M:%S"),
                                 "warn_count": item["warn_count"],
