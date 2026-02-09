@@ -302,7 +302,8 @@ if 'results_map' not in st.session_state:
             "Target %": p[1],
             "Difference": None,
             "Percent Diff %": None,
-            "DWS": None,                               # NEW
+            "DWS": None,
+            "R": None,# NEW
             "Depth @ 25% above spread": None,
             "Depth @ 50% above spread": None,
             "Status": "Pending...",
