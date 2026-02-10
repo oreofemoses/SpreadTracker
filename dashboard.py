@@ -7,9 +7,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 import time
 import os
-import re
 from selenium.webdriver.chrome.service import Service
-import gc  # Garbage collector
 
 
 # --- Improved Parse Function ---
@@ -29,6 +27,7 @@ def parse_orderbook(text: str):
             return None
         try:
             if '{' in value and '}' in value:
+                import re
                 match = re.search(r"0\.0\{(\d+)\}(\d+)", value)
                 if match:
                     zeros = int(match.group(1))
@@ -72,7 +71,7 @@ def parse_orderbook(text: str):
         # Handle Order Rows (Price, Amount, Total)
         elif len(parts) == 3:
             try:
-                p_val = float(parts[0].replace(',', ''))
+                p_val = parse_number(parts[0])
                 amt = parse_number(parts[1])
                 tot = parse_number(parts[2])
                 
@@ -99,10 +98,13 @@ def parse_orderbook(text: str):
     return asks_df, bids_df, spread_df
 
 
-# --- Depth Calculation Function (Quote Currency) ---
+# --- NEW: Depth Calculation Function ---
 def calculate_liquidity_depth(asks_df, bids_df, spread_pct):
     """
     Calculate total liquidity depth within spread_pct of mid-price IN QUOTE CURRENCY.
+    
+    Depth is calculated as price × amount for each order, giving the total value
+    in quote currency (USDT or NGN) available for trading.
     
     Args:
         asks_df: DataFrame with ask orders (price, amount, total)
@@ -151,6 +153,57 @@ def calculate_liquidity_depth(asks_df, bids_df, spread_pct):
     return total_depth
 
 
+def calculate_dws(asks_df, bids_df, num_levels=10):
+    """
+    Calculate Dollar-Weighted Spread (DWS) using mid-price-based formulation.
+    
+    DWS = Σ[|AskSize_i(Ask_i - Mid) + BidSize_i(Mid - Bid_i)|] / Σ(AskSize_i + BidSize_i)
+    
+    Args:
+        asks_df: DataFrame with ask orders (price, amount, total)
+        bids_df: DataFrame with bid orders (price, amount, total)
+        num_levels: Number of price levels to include from each side (default: 10)
+        
+    Returns:
+        DWS as a percentage, or None if data unavailable
+    """
+    # Check if we have data
+    if asks_df.empty or bids_df.empty:
+        return None
+    
+    # Get best bid and ask prices
+    best_ask = asks_df['price'].min()  # Lowest ask
+    best_bid = bids_df['price'].max()  # Highest bid
+    
+    # Calculate mid-price
+    mid_price = (best_ask + best_bid) / 2
+    
+    # Take first num_levels from each side
+    asks_subset = asks_df.nsmallest(num_levels, 'price').copy()
+    bids_subset = bids_df.nlargest(num_levels, 'price').copy()
+    
+    # Calculate weighted deviations for asks: AskSize_i × (Ask_i - Mid)
+    asks_subset['weighted_dev'] = asks_subset['amount'] * (asks_subset['price'] - mid_price)
+    
+    # Calculate weighted deviations for bids: BidSize_i × (Mid - Bid_i)
+    bids_subset['weighted_dev'] = bids_subset['amount'] * (mid_price - bids_subset['price'])
+    
+    # Numerator: Sum of absolute values of weighted deviations
+    numerator = asks_subset['weighted_dev'].abs().sum() + bids_subset['weighted_dev'].abs().sum()
+    
+    # Denominator: Sum of all sizes
+    denominator = asks_subset['amount'].sum() + bids_subset['amount'].sum()
+    
+    # Avoid division by zero
+    if denominator == 0:
+        return None
+    
+    # Calculate DWS and convert to percentage
+    dws = (numerator / denominator) / mid_price * 100
+    
+    return dws
+
+
 def format_depth_value(depth_value):
     """
     Format depth value for display with K/M suffix.
@@ -189,13 +242,6 @@ def init_chrome_driver():
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option("useAutomationExtension", False)
     
-    # MEMORY OPTIMIZATION: Limit cache and disable features
-    chrome_options.add_argument("--disk-cache-size=1")
-    chrome_options.add_argument("--media-cache-size=1")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-extensions")
-    chrome_options.add_argument("--disable-plugins")
-    
     user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
     chrome_options.add_argument(f"user-agent={user_agent}")
     
@@ -214,19 +260,6 @@ def init_chrome_driver():
     return driver
 
 
-def cleanup_driver(driver):
-    """
-    Properly cleanup driver resources.
-    """
-    try:
-        driver.quit()
-    except:
-        pass
-    
-    # Force garbage collection
-    gc.collect()
-
-
 # --- Streamlit UI Setup ---
 st.set_page_config(page_title="Crypto Spread Monitor", layout="wide")
 st.title("Quidax Orderbook Monitor")
@@ -239,17 +272,17 @@ if 'scraping_active' not in st.session_state:
 PAIRS = [
     ['AAVE_USDT', 0.30], ['ADA_USDT', 0.26], ['ALGO_USDT', 2.00],
     ['BCH_USDT', 0.26], ['BNB_USDT', 0.30], ['BONK_USDT', 2.00],
-    ['BTC_USDT', 0.20], ['CAKE_USDT', 0.30], ['CFX_USDT', 2.00],
+    ['BTC_USDT', 0.20], ['CAKE_USDT', 0.30], ['CFX_USDT', 2.00],['DASH_USDT', 2.00],
     ['DOT_USDT', 0.26], ['DOGE_USDT', 0.26], ['ETH_USDT', 0.25],
     ['FARTCOIN_USDT', 2.00], ['FLOKI_USDT', 0.50], ['HYPE_USDT', 2.00],
-    ['LINK_USDT', 0.26], ['NEAR_USDT', 2.00], ['NOS_USDT', 2.00],
+    ['LINK_USDT', 0.26],['LSK_USDT', 1.50], ['LTC_USDT', 0.30], ['NEAR_USDT', 2.00], ['NOS_USDT', 2.00],
     ['PEPE_USDT', 0.50], ['POL_USDT', 0.50], ['QDX_USDT', 10.00],
     ['RENDER_USDT', 2.00], ['Sonic_USDT', 2.00], ['SHIB_USDT', 0.40],
-    ['SLP_USDT', 2.00], ['SOL_USDT', 0.30], ['STRK_USDT', 2.00],
+    ['SLP_USDT', 2.00], ['SOL_USDT', 0.25], ['STRK_USDT', 2.00],
     ['SUI_USDT', 2.00], ['TON_USDT', 0.30], ['TRX_USDT', 0.30],
     ['USDC_USDT', 0.02], ['WIF_USDT', 2.00], ['XLM_USDT', 0.30],
     ['XRP_USDT', 0.30], ['XYO_USDT', 1.00], ['ZKSync_USDT', 2.00],
-    ['BTC_NGN', 0.50], ['USDT_NGN', 0.50], ['QDX_NGN', 10.00],
+    ['BTC_NGN', 0.50], ['USDT_NGN', 0.52], ['QDX_NGN', 10.00],
     ['ETH_NGN', 0.50], ['TRX_NGN', 0.50], ['XRP_NGN', 0.50],
     ['DASH_NGN', 0.50], ['LTC_NGN', 0.50], ['SOL_NGN', 0.50],
     ['USDC_NGN', 0.50]
@@ -259,7 +292,6 @@ PAIRS = [
 MAX_WARNING_RETRIES = 3
 MAX_FAIL_RETRIES = 3
 BASE_URL = "https://pro.quidax.io/en_US/trade/"
-DRIVER_RESTART_CYCLES = 5  # Restart driver every N cycles to prevent memory leaks
 
 # Initialize results map with persistent tracking (NOW WITH DEPTH FIELDS)
 if 'results_map' not in st.session_state:
@@ -270,8 +302,9 @@ if 'results_map' not in st.session_state:
             "Target %": p[1],
             "Difference": None,
             "Percent Diff %": None,
-            "Depth @ 1.25x": None,
-            "Depth @ 1.5x": None,
+            "DWS": None,                               # NEW
+            "Depth @ 25% above spread": None,
+            "Depth @ 50% above spread": None,
             "Status": "Pending...",
             "Last Updated": "-",
             "warn_count": 0,
@@ -283,7 +316,6 @@ results_map = st.session_state.results_map
 
 # UI placeholders
 status_text = st.empty()
-health_metric = st.empty()  # NEW: Health indicator
 table_placeholder = st.empty()
 
 
@@ -318,23 +350,14 @@ def render_table():
 if st.button('Start Scraping', disabled=st.session_state.scraping_active):
     st.session_state.scraping_active = True
     
-    driver = None
-    cycle_number = 1
+    # Initialize driver once for all cycles
+    driver = init_chrome_driver()
+    wait = WebDriverWait(driver, 10)
     
     try:
+        cycle_number = 1
+        
         while True:  # Infinite loop for continuous monitoring
-            # DRIVER RESTART LOGIC - Restart driver periodically to prevent memory leaks
-            if driver is None or cycle_number % DRIVER_RESTART_CYCLES == 1:
-                if driver is not None:
-                    status_text.text("♻️ Restarting browser to free memory...")
-                    cleanup_driver(driver)
-                    time.sleep(2)
-                
-                status_text.text("🔧 Initializing browser...")
-                driver = init_chrome_driver()
-                wait = WebDriverWait(driver, 10)
-                health_metric.success(f"✅ Browser healthy (Cycle {cycle_number})")
-            
             # Initialize tracking queue for this cycle
             tracking_queue = []
             
@@ -389,18 +412,17 @@ if st.button('Start Scraping', disabled=st.session_state.scraping_active):
                         # Parse orderbook data
                         asks_df, bids_df, spread_df = parse_orderbook(element.text)
                         
-                        # Calculate Depth Metrics at 1.25x and 1.5x current spread
-                        if not spread_df.empty and spread_df['spread_percent'][0] is not None:
-                            current_spread = spread_df['spread_percent'][0]
-                            depth_1_25x = calculate_liquidity_depth(asks_df, bids_df, current_spread * 1.25)
-                            depth_1_5x = calculate_liquidity_depth(asks_df, bids_df, current_spread * 1.5)
-                        else:
-                            depth_1_25x = None
-                            depth_1_5x = None
+                        # --- NEW: Calculate Depth Metrics ---
+                        depth_1pct = calculate_liquidity_depth(asks_df, bids_df, spread_df['spread_percent'][0]*(1.25))
+                        depth_2pct = calculate_liquidity_depth(asks_df, bids_df, spread_df['spread_percent'][0]*(1.5))
+                        
+                        # Calculate Dollar-Weighted Spread (DWS) for first 10 levels
+                        dws_value = calculate_dws(asks_df, bids_df, num_levels=10)
+                        dws_display = f"{dws_value:.4f}%" if dws_value is not None else "--"
                         
                         # Format depth for display
-                        depth_1_25x_display = format_depth_value(depth_1_25x)
-                        depth_1_5x_display = format_depth_value(depth_1_5x)
+                        depth_1pct_display = format_depth_value(depth_1pct)
+                        depth_2pct_display = format_depth_value(depth_2pct)
                         
                         if not spread_df.empty and spread_df['spread_percent'][0] is not None:
                             current_val = spread_df['spread_percent'][0]
@@ -418,8 +440,9 @@ if st.button('Start Scraping', disabled=st.session_state.scraping_active):
                                         "Current Spread %": current_val,
                                         "Difference": round(diff, 4),
                                         "Percent Diff %": round(percent_diff, 2),
-                                        "Depth @ 1.25x": depth_1_25x_display,
-                                        "Depth @ 1.5x": depth_1_5x_display,
+                                        "DWS": dws_display,  # NEW
+                                        "Depth @ 25% above spread": depth_1pct_display,
+                                        "Depth @ 50% above spread": depth_2pct_display,
                                         "Status": "Warning",
                                         "Last Updated": time.strftime("%H:%M:%S")
                                     })
@@ -444,8 +467,9 @@ if st.button('Start Scraping', disabled=st.session_state.scraping_active):
                                 "Current Spread %": current_val,
                                 "Difference": round(diff, 4),
                                 "Percent Diff %": round(percent_diff, 2),
-                                "Depth @ 1.25x": depth_1_25x_display,
-                                "Depth @ 1.5x": depth_1_5x_display,
+                                "DWS": dws_display,  # NEW
+                                "Depth @ 25% above spread": depth_1pct_display,
+                                "Depth @ 50% above spread": depth_2pct_display,
                                 "Status": status,
                                 "Last Updated": time.strftime("%H:%M:%S"),
                                 "warn_count": item["warn_count"],
@@ -472,31 +496,20 @@ if st.button('Start Scraping', disabled=st.session_state.scraping_active):
                     
                     # Update table after each market
                     render_table()
-                    
-                    # MEMORY CLEANUP: Clear variables
-                    if 'asks_df' in locals():
-                        del asks_df, bids_df, spread_df
                 
                 # Move to next pass
                 tracking_queue = next_pass_queue
                 pass_idx += 1
             
-            # Cycle complete
+            # Cycle complete, increment counter and loop continues
             cycle_number += 1
-            status_text.text(f"✅ Cycle {cycle_number - 1} complete. Starting Cycle {cycle_number}...")
-            
-            # Memory health check
-            if cycle_number % DRIVER_RESTART_CYCLES == 0:
-                health_metric.warning(f"⚠️ Browser will restart next cycle (Memory management)")
-            
+            status_text.text(f"Cycle {cycle_number - 1} complete. Starting Cycle {cycle_number}...")
             time.sleep(2)  # Brief pause between cycles
     
     except Exception as e:
         status_text.error(f"Critical error occurred: {str(e)}")
     
     finally:
-        if driver is not None:
-            cleanup_driver(driver)
+        driver.quit()
         st.session_state.scraping_active = False
         status_text.success("Scraping stopped.")
-        health_metric.info("Browser closed")
