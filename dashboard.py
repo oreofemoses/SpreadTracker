@@ -23,8 +23,8 @@ LOG_ENABLED = True
 
 # Telegram Alert Configuration
 TELEGRAM_ENABLED = True  # Set to False to disable Telegram alerts
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+TELEGRAM_BOT_TOKEN = st.secrets['TELEGRAM_BOT_TOKEN']
+TELEGRAM_CHAT_ID = st.secrets['TELEGRAM_CHAT_ID']
 
 # Alert Thresholds
 ALERT_THRESHOLD_CYCLES = 3        # Alert after 3 consecutive warning cycles
