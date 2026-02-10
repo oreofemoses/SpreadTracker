@@ -7,6 +7,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 import time
 import os
+import re
 from selenium.webdriver.chrome.service import Service
 import gc  # Garbage collector
 
@@ -27,6 +28,12 @@ def parse_orderbook(text: str):
         if not value or "--" in value:
             return None
         try:
+            if '{' in value and '}' in value:
+                match = re.search(r"0\.0\{(\d+)\}(\d+)", value)
+                if match:
+                    zeros = int(match.group(1))
+                    digits = match.group(2)
+                    value = "0." + ("0" * zeros) + digits
             if value.endswith('K'):
                 return float(value[:-1]) * 1_000
             elif value.endswith('M'):
@@ -252,7 +259,7 @@ PAIRS = [
 MAX_WARNING_RETRIES = 3
 MAX_FAIL_RETRIES = 3
 BASE_URL = "https://pro.quidax.io/en_US/trade/"
-DRIVER_RESTART_CYCLES = 10  # Restart driver every N cycles to prevent memory leaks
+DRIVER_RESTART_CYCLES = 5  # Restart driver every N cycles to prevent memory leaks
 
 # Initialize results map with persistent tracking (NOW WITH DEPTH FIELDS)
 if 'results_map' not in st.session_state:
