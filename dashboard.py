@@ -23,6 +23,8 @@ LOG_ENABLED = True
 
 # Telegram Alert Configuration
 TELEGRAM_ENABLED = True  # Set to False to disable Telegram alerts
+# TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+# TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 TELEGRAM_BOT_TOKEN = st.secrets['TELEGRAM_BOT_TOKEN']
 TELEGRAM_CHAT_ID = st.secrets['TELEGRAM_CHAT_ID']
 
@@ -585,70 +587,6 @@ with col2:
                 file_name=f"orderbook_health_{selected_date}.csv",
                 mime="text/csv"
             )
-
-# Display log contents if a file is selected
-if selected_path and os.path.exists(selected_path):
-    try:
-        df_logs = pd.read_csv(selected_path)
-        
-        if not df_logs.empty:
-            # Summary stats
-            st.markdown(f"**Log Summary for {selected_date}:**")
-            col_a, col_b, col_c, col_d = st.columns(4)
-            
-            with col_a:
-                warnings_entered = len(df_logs[df_logs['event_type'] == 'WARNING_ENTERED'])
-                st.metric("Warnings Entered", warnings_entered)
-            
-            with col_b:
-                warnings_cleared = len(df_logs[df_logs['event_type'] == 'WARNING_CLEARED'])
-                st.metric("Warnings Cleared", warnings_cleared)
-            
-            with col_c:
-                warnings_persistent = len(df_logs[df_logs['event_type'] == 'WARNING_PERSISTENT'])
-                st.metric("Persistent Warnings", warnings_persistent)
-            
-            with col_d:
-                scrape_failed = len(df_logs[df_logs['event_type'] == 'SCRAPE_FAILED'])
-                st.metric("Scrape Failures", scrape_failed)
-            
-            # Filter options
-            st.markdown("**Filter Logs:**")
-            filter_col1, filter_col2 = st.columns(2)
-            
-            with filter_col1:
-                event_filter = st.multiselect(
-                    "Event Type:",
-                    options=df_logs['event_type'].unique().tolist(),
-                    default=df_logs['event_type'].unique().tolist()
-                )
-            
-            with filter_col2:
-                symbol_filter = st.multiselect(
-                    "Symbol:",
-                    options=sorted(df_logs['symbol'].unique().tolist()),
-                    default=[]
-                )
-            
-            # Apply filters
-            filtered_df = df_logs[df_logs['event_type'].isin(event_filter)]
-            if symbol_filter:
-                filtered_df = filtered_df[filtered_df['symbol'].isin(symbol_filter)]
-            
-            # Display filtered logs
-            st.markdown(f"**Showing {len(filtered_df)} of {len(df_logs)} log entries:**")
-            st.dataframe(
-                filtered_df,
-                use_container_width=True,
-                height=400
-            )
-        else:
-            st.info(f"Log file for {selected_date} is empty.")
-    
-    except Exception as e:
-        st.error(f"Error reading log file: {e}")
-
-st.markdown("---")
 
 # Main scraping button
 if st.button('Start Scraping', disabled=st.session_state.scraping_active):
